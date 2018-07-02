@@ -11,8 +11,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
-	"github.com/alecthomas/units"
 )
 
 // NOTE: Most of the base type values were lifted from:
@@ -403,21 +401,21 @@ func (s *enumsValue) IsCumulative() bool {
 }
 
 // -- units.Base2Bytes Value
-type bytesValue units.Base2Bytes
+type bytesValue Base2Bytes
 
-func newBytesValue(p *units.Base2Bytes) *bytesValue {
+func newBytesValue(p *Base2Bytes) *bytesValue {
 	return (*bytesValue)(p)
 }
 
 func (d *bytesValue) Set(s string) error {
-	v, err := units.ParseBase2Bytes(s)
+	v, err := ParseBase2Bytes(s)
 	*d = bytesValue(v)
 	return err
 }
 
-func (d *bytesValue) Get() interface{} { return units.Base2Bytes(*d) }
+func (d *bytesValue) Get() interface{} { return Base2Bytes(*d) }
 
-func (d *bytesValue) String() string { return (*units.Base2Bytes)(d).String() }
+func (d *bytesValue) String() string { return (*Base2Bytes)(d).String() }
 
 func newExistingFileValue(target *string) *fileStatValue {
 	return newFileStatValue(target, func(s os.FileInfo) error {

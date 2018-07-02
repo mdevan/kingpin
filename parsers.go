@@ -5,8 +5,6 @@ import (
 	"net/url"
 	"os"
 	"time"
-
-	"github.com/alecthomas/units"
 )
 
 type Settings interface {
@@ -37,8 +35,8 @@ func (p *parserMixin) Duration() (target *time.Duration) {
 }
 
 // Bytes parses numeric byte units. eg. 1.5KB
-func (p *parserMixin) Bytes() (target *units.Base2Bytes) {
-	target = new(units.Base2Bytes)
+func (p *parserMixin) Bytes() (target *Base2Bytes) {
+	target = new(Base2Bytes)
 	p.BytesVar(target)
 	return
 }
@@ -125,7 +123,7 @@ func (p *parserMixin) DurationVar(target *time.Duration) {
 }
 
 // BytesVar parses numeric byte units. eg. 1.5KB
-func (p *parserMixin) BytesVar(target *units.Base2Bytes) {
+func (p *parserMixin) BytesVar(target *Base2Bytes) {
 	p.SetValue(newBytesValue(target))
 }
 
