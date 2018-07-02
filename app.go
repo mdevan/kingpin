@@ -36,7 +36,6 @@ type Application struct {
 	terminate      func(status int) // See Terminate()
 	noInterspersed bool             // can flags be interspersed with args (or must they come first)
 	defaultEnvars  bool
-	completion     bool
 
 	// Help flag. Exposed for user customisation.
 	HelpFlag *FlagClause
@@ -61,29 +60,8 @@ func New(name, help string) *Application {
 	a.cmdGroup = newCmdGroup(a)
 	a.HelpFlag = a.Flag("help", "Show help.")
 	a.HelpFlag.Bool()
-	a.Flag("completion-bash", "Output possible completions for the given args.").Hidden().BoolVar(&a.completion)
-	a.Flag("completion-script-bash", "Generate completion script for bash.").Hidden().PreAction(a.generateBashCompletionScript).Bool()
-	a.Flag("completion-script-zsh", "Generate completion script for ZSH.").Hidden().PreAction(a.generateZSHCompletionScript).Bool()
 
 	return a
-}
-
-func (a *Application) generateBashCompletionScript(c *ParseContext) error {
-	a.Writer(os.Stdout)
-	if err := a.UsageForContextWithTemplate(c, 2, BashCompletionTemplate); err != nil {
-		return err
-	}
-	a.terminate(0)
-	return nil
-}
-
-func (a *Application) generateZSHCompletionScript(c *ParseContext) error {
-	a.Writer(os.Stdout)
-	if err := a.UsageForContextWithTemplate(c, 2, ZshCompletionTemplate); err != nil {
-		return err
-	}
-	a.terminate(0)
-	return nil
 }
 
 // DefaultEnvars configures all flags (that do not already have an associated
@@ -178,32 +156,28 @@ func (a *Application) Parse(args []string) (command string, err error) {
 
 	selected, setValuesErr = a.setValues(context)
 
-	if err = a.applyPreActions(context, !a.completion); err != nil {
+	if err = a.applyPreActions(context); err != nil {
 		return "", err
 	}
 
-	if a.completion {
-		a.generateBashCompletion(context)
-		a.terminate(0)
-	} else {
-		if parseErr != nil {
-			return "", parseErr
-		}
-
-		a.maybeHelp(context)
-		if !context.EOL() {
-			return "", fmt.Errorf("unexpected argument '%s'", context.Peek())
-		}
-
-		if setValuesErr != nil {
-			return "", setValuesErr
-		}
-
-		command, err = a.execute(context, selected)
-		if err == ErrCommandNotSpecified {
-			a.writeUsage(context, nil)
-		}
+	if parseErr != nil {
+		return "", parseErr
 	}
+
+	a.maybeHelp(context)
+	if !context.EOL() {
+		return "", fmt.Errorf("unexpected argument '%s'", context.Peek())
+	}
+
+	if setValuesErr != nil {
+		return "", setValuesErr
+	}
+
+	command, err = a.execute(context, selected)
+	if err == ErrCommandNotSpecified {
+		a.writeUsage(context, nil)
+	}
+
 	return command, err
 }
 
@@ -509,17 +483,15 @@ func (a *Application) applyValidators(context *ParseContext) (err error) {
 	return err
 }
 
-func (a *Application) applyPreActions(context *ParseContext, dispatch bool) error {
+func (a *Application) applyPreActions(context *ParseContext) error {
 	if err := a.actionMixin.applyPreActions(context); err != nil {
 		return err
 	}
 	// Dispatch to actions.
-	if dispatch {
-		for _, element := range context.Elements {
-			if applier, ok := element.Clause.(actionApplier); ok {
-				if err := applier.applyPreActions(context); err != nil {
-					return err
-				}
+	for _, element := range context.Elements {
+		if applier, ok := element.Clause.(actionApplier); ok {
+			if err := applier.applyPreActions(context); err != nil {
+				return err
 			}
 		}
 	}
@@ -584,83 +556,6 @@ func (a *Application) FatalIfError(err error, format string, args ...interface{}
 		a.Errorf(prefix+"%s", err)
 		a.terminate(1)
 	}
-}
-
-func (a *Application) completionOptions(context *ParseContext) []string {
-	args := context.rawArgs
-
-	var (
-		currArg string
-		prevArg string
-		target  cmdMixin
-	)
-
-	numArgs := len(args)
-	if numArgs > 1 {
-		args = args[1:]
-		currArg = args[len(args)-1]
-	}
-	if numArgs > 2 {
-		prevArg = args[len(args)-2]
-	}
-
-	target = a.cmdMixin
-	if context.SelectedCommand != nil {
-		// A subcommand was in use. We will use it as the target
-		target = context.SelectedCommand.cmdMixin
-	}
-
-	if (currArg != "" && strings.HasPrefix(currArg, "--")) || strings.HasPrefix(prevArg, "--") {
-		// Perform completion for A flag. The last/current argument started with "-"
-		var (
-			flagName  string // The name of a flag if given (could be half complete)
-			flagValue string // The value assigned to a flag (if given) (could be half complete)
-		)
-
-		if strings.HasPrefix(prevArg, "--") && !strings.HasPrefix(currArg, "--") {
-			// Matches: 	./myApp --flag value
-			// Wont Match: 	./myApp --flag --
-			flagName = prevArg[2:] // Strip the "--"
-			flagValue = currArg
-		} else if strings.HasPrefix(currArg, "--") {
-			// Matches: 	./myApp --flag --
-			// Matches:		./myApp --flag somevalue --
-			// Matches: 	./myApp --
-			flagName = currArg[2:] // Strip the "--"
-		}
-
-		options, flagMatched, valueMatched := target.FlagCompletion(flagName, flagValue)
-		if valueMatched {
-			// Value Matched. Show cmdCompletions
-			return target.CmdCompletion(context)
-		}
-
-		// Add top level flags if we're not at the top level and no match was found.
-		if context.SelectedCommand != nil && !flagMatched {
-			topOptions, topFlagMatched, topValueMatched := a.FlagCompletion(flagName, flagValue)
-			if topValueMatched {
-				// Value Matched. Back to cmdCompletions
-				return target.CmdCompletion(context)
-			}
-
-			if topFlagMatched {
-				// Top level had a flag which matched the input. Return it's options.
-				options = topOptions
-			} else {
-				// Add top level flags
-				options = append(options, topOptions...)
-			}
-		}
-		return options
-	}
-
-	// Perform completion for sub commands and arguments.
-	return target.CmdCompletion(context)
-}
-
-func (a *Application) generateBashCompletion(context *ParseContext) {
-	options := a.completionOptions(context)
-	fmt.Printf("%s", strings.Join(options, "\n"))
 }
 
 func envarTransform(name string) string {
