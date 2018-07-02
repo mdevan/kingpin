@@ -59,33 +59,13 @@ func New(name, help string) *Application {
 	a.flagGroup = newFlagGroup()
 	a.argGroup = newArgGroup()
 	a.cmdGroup = newCmdGroup(a)
-	a.HelpFlag = a.Flag("help", "Show context-sensitive help (also try --help-long and --help-man).")
+	a.HelpFlag = a.Flag("help", "Show help.")
 	a.HelpFlag.Bool()
-	a.Flag("help-long", "Generate long help.").Hidden().PreAction(a.generateLongHelp).Bool()
-	a.Flag("help-man", "Generate a man page.").Hidden().PreAction(a.generateManPage).Bool()
 	a.Flag("completion-bash", "Output possible completions for the given args.").Hidden().BoolVar(&a.completion)
 	a.Flag("completion-script-bash", "Generate completion script for bash.").Hidden().PreAction(a.generateBashCompletionScript).Bool()
 	a.Flag("completion-script-zsh", "Generate completion script for ZSH.").Hidden().PreAction(a.generateZSHCompletionScript).Bool()
 
 	return a
-}
-
-func (a *Application) generateLongHelp(c *ParseContext) error {
-	a.Writer(os.Stdout)
-	if err := a.UsageForContextWithTemplate(c, 2, LongHelpTemplate); err != nil {
-		return err
-	}
-	a.terminate(0)
-	return nil
-}
-
-func (a *Application) generateManPage(c *ParseContext) error {
-	a.Writer(os.Stdout)
-	if err := a.UsageForContextWithTemplate(c, 2, ManPageTemplate); err != nil {
-		return err
-	}
-	a.terminate(0)
-	return nil
 }
 
 func (a *Application) generateBashCompletionScript(c *ParseContext) error {

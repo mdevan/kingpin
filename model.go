@@ -11,8 +11,6 @@ import (
 var (
 	ignoreInCount = map[string]bool{
 		"help":                   true,
-		"help-long":              true,
-		"help-man":               true,
 		"completion-bash":        true,
 		"completion-script-bash": true,
 		"completion-script-zsh":  true,

@@ -40,8 +40,6 @@ func TestHiddenCommand(t *testing.T) {
 	templates := []struct{ name, template string }{
 		{"default", DefaultUsageTemplate},
 		{"Compact", CompactUsageTemplate},
-		{"Long", LongHelpTemplate},
-		{"Man", ManPageTemplate},
 	}
 
 	var buf bytes.Buffer
